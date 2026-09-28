@@ -1,0 +1,220 @@
+#!/bin/bash
+# User-level tools for the current profile ({{ .profile }}).
+# Linux: pinned release binaries, SHA256-verified, installed to ~/.local/opt
+# with symlinks in ~/.local/bin. Each tool is skipped when the pinned version
+# is already on PATH, so re-running this script is cheap.
+# Plugin lock hash (re-sync plugins when it changes):
+#   lazy-lock.json {{ include "dot_config/nvim/lazy-lock.json" | sha256sum }}
+set -euo pipefail
+
+warn() { printf 'tools: %s\n' "$*" >&2; }
+say() { printf 'tools: %s\n' "$*"; }
+
+{{ if ne .profile "mac" -}}
+OPT="$HOME/.local/opt"
+BIN="$HOME/.local/bin"
+mkdir -p "$OPT" "$BIN"
+export PATH="$BIN:$PATH"
+
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+
+case "$(uname -m)" in
+    x86_64 | amd64) ARCH=x86_64 ;;
+    aarch64 | arm64) ARCH=aarch64 ;;
+    *)
+        warn "unsupported architecture: $(uname -m) (only x86_64 and aarch64)"
+        exit 1
+        ;;
+esac
+
+# has_version CMD VERSION -> true if CMD on PATH reports VERSION (first line).
+has_version() {
+    local path out word
+    local -a words
+    path=$(command -v "$1" 2>/dev/null) || return 1
+    out=$("$path" --version 2>/dev/null) || return 1
+    read -ra words <<<"${out%%$'\n'*}"
+    for word in "${words[@]}"; do
+        [[ ${word#v} == "$2" ]] && return 0
+    done
+    return 1
+}
+
+# fetch URL SHA256 DEST -> download and verify, abort on mismatch.
+fetch() {
+    say "downloading $1"
+    curl -fsSL --retry 3 -o "$3" "$1"
+    if ! echo "$2  $3" | sha256sum -c --quiet -; then
+        warn "checksum mismatch for $1"
+        exit 1
+    fi
+}
+
+# unzip_to ZIP DIR -> extract with unzip, or python3 when unzip is missing.
+unzip_to() {
+    mkdir -p "$2"
+    if command -v unzip >/dev/null 2>&1; then
+        unzip -oq "$1" -d "$2"
+    else
+        python3 -m zipfile -e "$1" "$2"
+    fi
+}
+
+# install_tar NAME URL SHA STRIP BINREL -> unpack into $OPT/NAME and
+# symlink $OPT/NAME/BINREL as ~/.local/bin/<basename of BINREL>.
+install_tar() {
+    local name=$1 url=$2 sha=$3 strip=$4 binrel=$5
+    fetch "$url" "$sha" "$TMP/$name.tar.gz"
+    rm -rf "${OPT:?}/${name:?}.new"
+    mkdir -p "$OPT/$name.new"
+    tar -xzf "$TMP/$name.tar.gz" -C "$OPT/$name.new" --strip-components="$strip"
+    rm -rf "${OPT:?}/${name:?}"
+    mv "$OPT/$name.new" "$OPT/$name"
+    ln -sfn "$OPT/$name/$binrel" "$BIN/${binrel##*/}"
+    say "installed $name"
+}
+
+# --- Neovim (pinned; same layout as ~/.local/opt/nvim + ~/.local/bin/nvim) --
+# SHA256 from the GitHub release asset digests (v0.12.5 ships no shasum.txt).
+NVIM_VERSION=0.12.5
+case $ARCH in
+    x86_64) nvim_asset=nvim-linux-x86_64 nvim_sha=bce0f56eda1f1b1db6eee8f4133d7a38813ea07933837dd1777411ca384c6875 ;;
+    aarch64) nvim_asset=nvim-linux-arm64 nvim_sha=1aa5ca085249580ae0f91eb14f27ec0919773ff2d99a163d03f3d6c21ac29725 ;;
+esac
+if has_version nvim "$NVIM_VERSION"; then
+    say "nvim $NVIM_VERSION already installed"
+else
+    install_tar nvim \
+        "https://github.com/neovim/neovim/releases/download/v$NVIM_VERSION/$nvim_asset.tar.gz" \
+        "$nvim_sha" 1 bin/nvim
+fi
+
+# --- tree-sitter CLI (single gzipped binary) -------------------------------
+TS_VERSION=0.27.0
+case $ARCH in
+    x86_64) ts_asset=tree-sitter-linux-x64 ts_sha=20a1f39ec1c45f2211492dcb8881c802b643b554bb196869a29ac3778277fa77 ;;
+    aarch64) ts_asset=tree-sitter-linux-arm64 ts_sha=3a35a2dd961ad842384e982c75daf792c01d1a67e442fc3914d4de37bd8a59cb ;;
+esac
+if has_version tree-sitter "$TS_VERSION"; then
+    say "tree-sitter $TS_VERSION already installed"
+else
+    fetch "https://github.com/tree-sitter/tree-sitter/releases/download/v$TS_VERSION/$ts_asset.gz" \
+        "$ts_sha" "$TMP/tree-sitter.gz"
+    mkdir -p "$OPT/tree-sitter"
+    gzip -dc "$TMP/tree-sitter.gz" >"$OPT/tree-sitter/tree-sitter"
+    chmod 755 "$OPT/tree-sitter/tree-sitter"
+    ln -sfn "$OPT/tree-sitter/tree-sitter" "$BIN/tree-sitter"
+    say "installed tree-sitter"
+fi
+
+# --- starship (SHA256 matches the release's *.sha256 files) ----------------
+STARSHIP_VERSION=1.26.0
+case $ARCH in
+    x86_64) starship_sha=b7c232b0e8249d8e55a40beb79c5c43a7d370f3f9408bd215deb0170daeaadf3 ;;
+    aarch64) starship_sha=dc30189378d2f2e287384e8a692d3f95ad1df64cf0e8c36aa9201516028aed6b ;;
+esac
+if has_version starship "$STARSHIP_VERSION"; then
+    say "starship $STARSHIP_VERSION already installed"
+else
+    install_tar starship \
+        "https://github.com/starship/starship/releases/download/v$STARSHIP_VERSION/starship-$ARCH-unknown-linux-musl.tar.gz" \
+        "$starship_sha" 0 starship
+fi
+
+{{ if eq .profile "rootless" -}}
+# --- rootless only: CLI tools that zorin gets from apt ----------------------
+
+# fzf (SHA256 matches fzf_<ver>_checksums.txt)
+FZF_VERSION=0.74.4
+case $ARCH in
+    x86_64) fzf_arch=amd64 fzf_sha=05e6813a337cc722c3ed07e54a764b75cc5d671e2e60459db0ba696ee5fa7504 ;;
+    aarch64) fzf_arch=arm64 fzf_sha=5d673b849f494f0d64ec471d8640b153ca8849e3846a31da17abdcfce8df6b46 ;;
+esac
+if has_version fzf "$FZF_VERSION"; then
+    say "fzf $FZF_VERSION already installed"
+else
+    install_tar fzf \
+        "https://github.com/junegunn/fzf/releases/download/v$FZF_VERSION/fzf-$FZF_VERSION-linux_$fzf_arch.tar.gz" \
+        "$fzf_sha" 0 fzf
+fi
+
+# fd (no checksum file upstream; SHA256 from the GitHub release asset digests)
+FD_VERSION=10.5.0
+case $ARCH in
+    x86_64) fd_sha=761c72dc8e120d85b22292063be8a796e2eeb20eb3e4f38b8fa2343ccf3514a7 ;;
+    aarch64) fd_sha=d76c4317f7d5dba69f8a2a15856c90c777e7f0dd4e85f0de8c76de6992c374d4 ;;
+esac
+if has_version fd "$FD_VERSION"; then
+    say "fd $FD_VERSION already installed"
+else
+    install_tar fd \
+        "https://github.com/sharkdp/fd/releases/download/v$FD_VERSION/fd-v$FD_VERSION-$ARCH-unknown-linux-musl.tar.gz" \
+        "$fd_sha" 1 fd
+fi
+
+# ripgrep (SHA256 matches the release's *.sha256 files)
+RG_VERSION=15.2.0
+case $ARCH in
+    x86_64) rg_sha=33e15bcf1624b25cdd2a55813a47a2f95dbe126268203e76aa6a585d1e7b149c ;;
+    aarch64) rg_sha=800b1e7206afe799dfb5a6901f23147cfaabe0e52210538100f61e86e1740915 ;;
+esac
+if has_version rg "$RG_VERSION"; then
+    say "ripgrep $RG_VERSION already installed"
+else
+    install_tar ripgrep \
+        "https://github.com/BurntSushi/ripgrep/releases/download/$RG_VERSION/ripgrep-$RG_VERSION-$ARCH-unknown-linux-musl.tar.gz" \
+        "$rg_sha" 1 rg
+fi
+
+# clangd (x86_64 only upstream; SHA256 from the GitHub release asset digest)
+CLANGD_VERSION=22.1.6
+CLANGD_SHA=a9c77443af2e447ed467e84771848d3a6ac1c56f84bcfcde717e66318de77cfa
+if has_version clangd "$CLANGD_VERSION"; then
+    say "clangd $CLANGD_VERSION already installed"
+elif [[ $ARCH != x86_64 ]]; then
+    warn "ERROR: clangd has no official $ARCH Linux build; install it another way (skipped)"
+else
+    fetch "https://github.com/clangd/clangd/releases/download/$CLANGD_VERSION/clangd-linux-$CLANGD_VERSION.zip" \
+        "$CLANGD_SHA" "$TMP/clangd.zip"
+    unzip_to "$TMP/clangd.zip" "$TMP/clangd"
+    rm -rf "$OPT/clangd"
+    mv "$TMP/clangd/clangd_$CLANGD_VERSION" "$OPT/clangd"
+    chmod 755 "$OPT/clangd/bin/clangd"
+    ln -sfn "$OPT/clangd/bin/clangd" "$BIN/clangd"
+    say "installed clangd"
+fi
+{{- else -}}
+# --- zorin only: JetBrainsMono Nerd Font -------------------------------------
+# SHA256 matches the nerd-fonts release SHA-256.txt.
+FONT_VERSION=3.5.1
+FONT_SHA=fab782a66f7d3019da64f6572db9fc5d3a4bcb19f9fa13e2d8a62e3693d6396e
+FONT_DIR="$HOME/.local/share/fonts/JetBrainsMonoNerd"
+if compgen -G "$FONT_DIR/JetBrainsMonoNerdFont-*.ttf" >/dev/null; then
+    say "JetBrainsMono Nerd Font already installed"
+else
+    fetch "https://github.com/ryanoasis/nerd-fonts/releases/download/v$FONT_VERSION/JetBrainsMono.zip" \
+        "$FONT_SHA" "$TMP/JetBrainsMono.zip"
+    unzip_to "$TMP/JetBrainsMono.zip" "$FONT_DIR"
+    if command -v fc-cache >/dev/null 2>&1; then
+        fc-cache -f "$FONT_DIR"
+    fi
+    say "installed JetBrainsMono Nerd Font"
+fi
+{{- end }}
+{{- else -}}
+# mac: CLI tools, kitty and the Nerd Font come from Homebrew (packages/Brewfile).
+say "mac profile: tools are managed by Homebrew"
+{{- end }}
+
+# --- Neovim plugins: match lazy-lock.json (never fails the apply) ----------
+if command -v nvim >/dev/null 2>&1 && [[ -f "$HOME/.config/nvim/lazy-lock.json" ]]; then
+    say "restoring Neovim plugins from lazy-lock.json"
+    restore=(nvim --headless "+Lazy! restore" +qa)
+    if command -v timeout >/dev/null 2>&1; then
+        restore=(timeout 900 "${restore[@]}")
+    fi
+    if ! "${restore[@]}" </dev/null; then
+        warn "Lazy restore failed; open nvim and run :Lazy restore"
+    fi
+fi

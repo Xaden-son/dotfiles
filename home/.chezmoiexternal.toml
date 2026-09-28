@@ -1,0 +1,31 @@
+# Oh My Zsh itself: a shallow git clone (compatible with an existing clone
+# of the same repo, which chezmoi just pulls on refresh).
+[".oh-my-zsh"]
+    type = "git-repo"
+    url = "https://github.com/ohmyzsh/ohmyzsh.git"
+    refreshPeriod = "168h"
+    [".oh-my-zsh".clone]
+        args = ["--depth", "1"]
+    [".oh-my-zsh".pull]
+        args = ["--ff-only"]
+
+# Custom plugins, pinned to release tags.
+# NOTE: chezmoi does not allow "archive" externals inside a "git-repo"
+# external ("inconsistent state"), so the plugins are shallow git clones of
+# the pinned tag instead. Pulls re-fetch the same tag, so they stay pinned;
+# to upgrade, change the tag in both args lists.
+[".oh-my-zsh/custom/plugins/zsh-autosuggestions"]
+    type = "git-repo"
+    url = "https://github.com/zsh-users/zsh-autosuggestions.git"
+    [".oh-my-zsh/custom/plugins/zsh-autosuggestions".clone]
+        args = ["--depth", "1", "--branch", "v0.7.1", "-c", "advice.detachedHead=false"]
+    [".oh-my-zsh/custom/plugins/zsh-autosuggestions".pull]
+        args = ["--ff-only", "origin", "v0.7.1"]
+
+[".oh-my-zsh/custom/plugins/zsh-syntax-highlighting"]
+    type = "git-repo"
+    url = "https://github.com/zsh-users/zsh-syntax-highlighting.git"
+    [".oh-my-zsh/custom/plugins/zsh-syntax-highlighting".clone]
+        args = ["--depth", "1", "--branch", "0.8.0", "-c", "advice.detachedHead=false"]
+    [".oh-my-zsh/custom/plugins/zsh-syntax-highlighting".pull]
+        args = ["--ff-only", "origin", "0.8.0"]

@@ -1,0 +1,10 @@
+# Repo-only files, never copied to $HOME
+README.md
+packages
+packages/**
+
+{{- if eq .profile "rootless" }}
+# No kitty on rootless machines
+.config/kitty
+.config/kitty/**
+{{- end }}

@@ -1,0 +1,65 @@
+#!/bin/bash
+# System packages for the current profile ({{ .profile }}).
+# chezmoi re-runs this whenever the rendered script changes, i.e. whenever
+# the included package list changes.
+set -euo pipefail
+
+warn() { printf 'packages: %s\n' "$*" >&2; }
+
+{{ if eq .profile "zorin" -}}
+# --- zorin: apt ------------------------------------------------------------
+mapfile -t packages < <(grep -vE '^[[:space:]]*(#|$)' <<'PKGEOF'
+{{ include "packages/apt.txt" }}
+PKGEOF
+)
+
+# Collect packages that are not installed yet (no sudo needed for this).
+missing=()
+for pkg in "${packages[@]}"; do
+    status=$(dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null || true)
+    [[ $status == "install ok installed" ]] || missing+=("$pkg")
+done
+
+if [[ ${#missing[@]} -eq 0 ]]; then
+    echo "packages: all apt packages already installed"
+    exit 0
+fi
+
+if ! command -v sudo >/dev/null 2>&1; then
+    warn "sudo not available; install manually: ${missing[*]}"
+    exit 0
+fi
+
+echo "packages: installing via apt: ${missing[*]}"
+if ! { sudo apt-get update && sudo apt-get install -y "${missing[@]}"; }; then
+    warn "apt install failed (no sudo rights?); continuing without: ${missing[*]}"
+fi
+{{- else if eq .profile "mac" -}}
+# --- mac: Homebrew ---------------------------------------------------------
+brew=""
+for candidate in /opt/homebrew/bin/brew /usr/local/bin/brew "$(command -v brew || true)"; do
+    if [[ -n $candidate && -x $candidate ]]; then
+        brew=$candidate
+        break
+    fi
+done
+
+if [[ -z $brew ]]; then
+    warn "Homebrew not found. Install it first (see https://brew.sh or the"
+    warn ".pkg installer at https://github.com/Homebrew/brew/releases/latest),"
+    warn "then run: chezmoi apply"
+    exit 0
+fi
+
+"$brew" bundle --file=/dev/stdin <<'BREWEOF'
+{{ include "packages/Brewfile" }}
+BREWEOF
+
+# clangd is provided by the Xcode Command Line Tools.
+if ! command -v clangd >/dev/null 2>&1; then
+    warn "clangd not found; install the Xcode Command Line Tools: xcode-select --install"
+fi
+{{- else -}}
+# --- rootless: no system packages; tools go to ~/.local (see run_onchange_after_20-tools)
+echo "packages: rootless profile, nothing to install system-wide"
+{{- end }}

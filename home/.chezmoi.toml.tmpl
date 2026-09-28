@@ -1,0 +1,30 @@
+{{- /* Git email: asked once on first init, then remembered. */ -}}
+{{- $email := promptStringOnce . "email" "Git email" -}}
+
+{{- /*
+  Profile auto-detection:
+    mac      -> macOS (Homebrew)
+    zorin    -> Linux, user is in an admin group (sudo/admin/wheel): apt packages
+    rootless -> Linux without admin rights: everything goes to ~/.local
+  Override with: CHEZMOI_PROFILE=<profile> chezmoi init
+*/ -}}
+{{- $profile := "rootless" -}}
+{{- if eq .chezmoi.os "darwin" -}}
+{{-   $profile = "mac" -}}
+{{- else -}}
+{{-   $groups := output "id" "-nG" | trim | splitList " " -}}
+{{-   if or (has "sudo" $groups) (has "admin" $groups) (has "wheel" $groups) -}}
+{{-     $profile = "zorin" -}}
+{{-   end -}}
+{{- end -}}
+{{- with env "CHEZMOI_PROFILE" -}}
+{{-   $profile = . -}}
+{{- end -}}
+# Keep a custom source location (e.g. a project folder) across re-inits.
+sourceDir = {{ .chezmoi.sourceDir | quote }}
+# Standard permissions (644 files / 755 dirs) regardless of the machine's umask.
+umask = 0o022
+
+[data]
+    email = {{ $email | quote }}
+    profile = {{ $profile | quote }}

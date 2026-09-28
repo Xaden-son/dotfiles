@@ -1,0 +1,20 @@
+font_family JetBrainsMono Nerd Font
+font_size 13.0
+window_padding_width 10
+
+
+# BEGIN_KITTY_THEME
+# Tokyo Night
+include current-theme.conf
+# END_KITTY_THEME
+
+hide_window_decorations yes
+
+# Transparent background (Neovim nordfox is transparent too)
+background_opacity 0.85
+dynamic_background_opacity yes
+{{- if eq .profile "mac" }}
+
+# macOS: treat left Option as Alt (Alt+w, Alt+Backspace, ...)
+macos_option_as_alt left
+{{- end }}

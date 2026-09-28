@@ -1,0 +1,13 @@
+# Homebrew packages for the "mac" profile.
+# clangd comes from the Xcode Command Line Tools (xcode-select --install),
+# so the large "llvm" formula is intentionally not installed.
+brew "git"
+brew "neovim"
+brew "fzf"
+brew "fd"
+brew "ripgrep"
+brew "starship"
+brew "tree-sitter-cli"
+
+cask "kitty"
+cask "font-jetbrains-mono-nerd-font"

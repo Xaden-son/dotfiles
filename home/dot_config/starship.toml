@@ -1,0 +1,50 @@
+add_newline = false
+
+format = """
+[](#7aa2f7)\
+$directory\
+[](bg:#bb9af7 fg:#7aa2f7)\
+$git_branch\
+$git_status\
+[](fg:#bb9af7 bg:#24283b)\
+$nodejs\
+$python\
+$rust\
+[](fg:#24283b)\
+$line_break\
+$character
+"""
+
+[directory]
+style = "bg:#7aa2f7 fg:#1a1b26 bold"
+repo_root_style = "bg:#7aa2f7 fg:#1a1b26 bold"
+format = "[ $path ]($style)"
+repo_root_format = "[ $repo_root ]($repo_root_style)"
+truncate_to_repo = true
+truncation_length = 1
+
+[git_branch]
+symbol = " "
+style = "bg:#bb9af7 fg:#1a1b26 bold"
+format = "[ $symbol$branch ]($style)"
+
+[git_status]
+style = "bg:#bb9af7 fg:#1a1b26"
+format = "[$all_status$ahead_behind ]($style)"
+
+[nodejs]
+disabled = true
+
+[python]
+symbol = " "
+style = "bg:#24283b fg:#e0af68"
+format = "[ $symbol$version ]($style)"
+
+[rust]
+symbol = " "
+style = "bg:#24283b fg:#f7768e"
+format = "[ $symbol$version ]($style)"
+
+[character]
+success_symbol = "[❯](bold #9ece6a)"
+error_symbol = "[❯](bold #f7768e)"

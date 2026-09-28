@@ -1,0 +1,12 @@
+# apt packages for the "zorin" profile (one per line)
+zsh
+git
+curl
+unzip
+fzf
+fd-find
+ripgrep
+clangd
+xclip
+kitty
+build-essential
