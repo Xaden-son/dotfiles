@@ -122,6 +122,22 @@ else
         "$starship_sha" 0 starship
 fi
 
+# --- jdtls: Java language server (arch-independent, needs Java 21+) -------
+# SHA256 matches the milestone's *.tar.gz.sha256 file. jdtls has no --version,
+# so the installed version is tracked in $OPT/jdtls/.version.
+JDTLS_VERSION=1.61.0
+JDTLS_BUILD=202609031315
+JDTLS_SHA=338e7e73d61836651ba2453919a0d34fa763eb4e7c03342092309bffb8934c64
+if [[ $(cat "$OPT/jdtls/.version" 2>/dev/null) == "$JDTLS_VERSION" ]]; then
+    say "jdtls $JDTLS_VERSION already installed"
+else
+    install_tar jdtls \
+        "https://download.eclipse.org/jdtls/milestones/$JDTLS_VERSION/jdt-language-server-$JDTLS_VERSION-$JDTLS_BUILD.tar.gz" \
+        "$JDTLS_SHA" 0 bin/jdtls
+    echo "$JDTLS_VERSION" >"$OPT/jdtls/.version"
+fi
+command -v java >/dev/null 2>&1 || warn "jdtls needs Java 21+ on PATH (java not found)"
+
 {{ if eq .profile "rootless" -}}
 # --- rootless only: CLI tools that zorin gets from apt ----------------------
 

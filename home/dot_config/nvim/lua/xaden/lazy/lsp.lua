@@ -13,8 +13,21 @@ return {
 				},
 			})
 
+			-- Standalone .java files (no pom.xml/gradle/.git) get only syntax errors,
+			-- so fall back to the file's folder as the project root.
+			vim.lsp.config("jdtls", {
+				root_dir = function(bufnr, on_dir)
+					local root = vim.fs.root(bufnr, {
+						{ "mvnw", "gradlew", "settings.gradle", "settings.gradle.kts", ".git" },
+						{ "build.xml", "pom.xml", "build.gradle", "build.gradle.kts" },
+					})
+					on_dir(root or vim.fs.dirname(vim.api.nvim_buf_get_name(bufnr)))
+				end,
+			})
+
 			local servers = {
 				"clangd",
+				"jdtls",
 				-- "gopls",
 				-- "lua_ls",
 				-- "ts_ls",

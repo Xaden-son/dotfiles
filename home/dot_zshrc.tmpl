@@ -183,3 +183,9 @@ clear() {
 }
 
 
+{{- if eq .chezmoi.os "linux" }}
+
+# Android SDK (Android Studio olmadan, fiziksel cihaz testi için)
+export ANDROID_HOME=$HOME/Android/Sdk
+export PATH=$PATH:$ANDROID_HOME/platform-tools
+{{- end }}
