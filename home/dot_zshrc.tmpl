@@ -118,6 +118,18 @@ alias cnvpdf='libreoffice --headless --convert-to pdf'
 alias jc='javac -Xlint:all -Werror'
 {{- if eq .profile "zorin" }}
 alias sudoup="sudo apt update && sudo apt upgrade -y"
+{{- else if eq .profile "mac" }}
+alias brewup='brew update && brew upgrade && brew cleanup'
+
+# Java 21 (Homebrew openjdk@21)
+if [[ -d /opt/homebrew/opt/openjdk@21/bin ]]; then
+  export PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH"
+fi
+if JAVA_HOME=$(/usr/libexec/java_home -v 21 2>/dev/null); then
+  export JAVA_HOME
+else
+  unset JAVA_HOME
+fi
 {{- end }}
 
 
