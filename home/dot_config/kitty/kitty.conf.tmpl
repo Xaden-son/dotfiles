@@ -8,7 +8,9 @@ window_padding_width 10
 include current-theme.conf
 # END_KITTY_THEME
 
+{{- if ne .profile "mac" }}
 hide_window_decorations yes
+{{- end }}
 
 # Transparent background (Neovim nordfox is transparent too)
 background_opacity 0.85
