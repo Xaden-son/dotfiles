@@ -19,4 +19,9 @@ dynamic_background_opacity yes
 
 # macOS: treat left Option as Alt (Alt+w, Alt+Backspace, ...)
 macos_option_as_alt left
+
+# Font size: Ctrl+- smaller, Ctrl++ bigger (Turkish Q: + is Shift+4)
+map ctrl+minus   change_font_size all -1.0
+map ctrl+plus    change_font_size all +1.0
+map ctrl+shift+4 change_font_size all +1.0
 {{- end }}
