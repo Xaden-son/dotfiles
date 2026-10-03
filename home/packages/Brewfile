@@ -11,4 +11,5 @@ brew "tree-sitter-cli"
 brew "jdtls"
 
 cask "kitty"
+cask "libreoffice"
 cask "font-jetbrains-mono-nerd-font"

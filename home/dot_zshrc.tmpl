@@ -114,12 +114,14 @@ source $ZSH/oh-my-zsh.sh
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 alias ccmp='cc -Wextra -Wall -Werror'
 alias cppc='g++ -Wall -Wextra -Werror'
-alias cnvpdf='libreoffice --headless --convert-to pdf'
 alias jc='javac -Xlint:all -Werror'
 {{- if eq .profile "zorin" }}
 alias sudoup="sudo apt update && sudo apt upgrade -y"
+alias cnvpdf='libreoffice --headless --convert-to pdf'
 {{- else if eq .profile "mac" }}
 alias brewup='brew update && brew upgrade && brew cleanup'
+# LibreOffice cask installs the "soffice" command wrapper
+alias cnvpdf='soffice --headless --convert-to pdf'
 
 # Java 21 (Homebrew openjdk@21)
 if [[ -d /opt/homebrew/opt/openjdk@21/bin ]]; then
